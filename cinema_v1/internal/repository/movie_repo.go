@@ -19,7 +19,7 @@ type MovieMemoryRepository struct {
 	mu     sync.RWMutex
 }
 
-func NewMovieMemoryRepository() *MovieMemoryRepository {
+func NewMovieMemoryRepository() MovieRepository {
 	return &MovieMemoryRepository{
 		movies: make(map[string]models.Movie),
 	}
