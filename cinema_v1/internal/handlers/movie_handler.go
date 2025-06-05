@@ -17,6 +17,20 @@ func NewMovieHandler(service service.MovieService) *MovieHandler {
 	return &MovieHandler{service: service}
 }
 
+func (h *MovieHandler) InitRoutes() *gin.Engine {
+	// Создание роутера Gin
+	router := gin.Default()
+
+	// Маршруты для фильмов
+	router.GET("/movies", h.GetAllMovies)
+	router.GET("/movies/:id", h.GetMovie)
+	router.POST("/movies", h.CreateMovie)
+	router.PUT("/movies/:id", h.UpdateMovie)
+	router.DELETE("/movies/:id", h.DeleteMovie)
+
+	return router
+}
+
 func (h *MovieHandler) GetAllMovies(c *gin.Context) {
 	movies, err := h.service.GetAllMovies()
 	if err != nil {

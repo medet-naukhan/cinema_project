@@ -4,32 +4,32 @@ import (
 	"cinema_v1/internal/handlers"
 	"cinema_v1/internal/repository"
 	"cinema_v1/internal/service"
+	"net/http"
 
-	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
 	// Инициализация хранилища в памяти
-	movieRepo := repository.NewMovieMemoryRepository()
+	repo := repository.NewMovieMemoryRepository()
 
 	// Инициализация сервиса
-	movieService := service.NewMovieService(movieRepo)
+	service := service.NewMovieService(repo)
 
 	// Инициализация обработчиков
-	movieHandler := handlers.NewMovieHandler(movieService)
-
-	// Создание роутера Gin
-	router := gin.Default()
-
-	// Маршруты для фильмов
-	router.GET("/movies", movieHandler.GetAllMovies)
-	router.GET("/movies/:id", movieHandler.GetMovie)
-	router.POST("/movies", movieHandler.CreateMovie)
-	router.PUT("/movies/:id", movieHandler.UpdateMovie)
-	router.DELETE("/movies/:id", movieHandler.DeleteMovie)
+	handler := handlers.NewMovieHandler(service)
 
 	// Запуск сервера
-	router.Run(":8080")
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: handler.InitRoutes(),
+	}
+
+	logrus.Info("Server starting on port 5050...")
+
+	if err := server.ListenAndServe(); err != nil {
+		logrus.Fatal(err)
+	}
 }
 
 // Get
