@@ -6,6 +6,7 @@ import (
 	"cinema_v1/internal/models"
 )
 
+// Интерфейс хранилища (абстракция для любой БД)
 type MovieRepository interface {
 	GetAll() ([]models.Movie, error)
 	GetByID(id string) (*models.Movie, error)
@@ -14,17 +15,20 @@ type MovieRepository interface {
 	Delete(id string) error
 }
 
+// Реализация хранилища в памяти
 type MovieMemoryRepository struct {
 	movies map[string]models.Movie
 	mu     sync.RWMutex
 }
 
+// Конструктор хранилища
 func NewMovieMemoryRepository() MovieRepository {
 	return &MovieMemoryRepository{
 		movies: make(map[string]models.Movie),
 	}
 }
 
+// Получить все фильмы
 func (r *MovieMemoryRepository) GetAll() ([]models.Movie, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -36,6 +40,7 @@ func (r *MovieMemoryRepository) GetAll() ([]models.Movie, error) {
 	return movies, nil
 }
 
+// Получить фильм по ID
 func (r *MovieMemoryRepository) GetByID(id string) (*models.Movie, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -47,6 +52,7 @@ func (r *MovieMemoryRepository) GetByID(id string) (*models.Movie, error) {
 	return &movie, nil
 }
 
+// Создать фильм
 func (r *MovieMemoryRepository) Create(movie models.Movie) (*models.Movie, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -55,6 +61,7 @@ func (r *MovieMemoryRepository) Create(movie models.Movie) (*models.Movie, error
 	return &movie, nil
 }
 
+// Обновить фильм
 func (r *MovieMemoryRepository) Update(movie models.Movie) (*models.Movie, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -67,6 +74,7 @@ func (r *MovieMemoryRepository) Update(movie models.Movie) (*models.Movie, error
 	return &movie, nil
 }
 
+// Удалить фильм
 func (r *MovieMemoryRepository) Delete(id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
