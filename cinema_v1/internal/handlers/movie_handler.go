@@ -19,6 +19,9 @@ func NewMovieHandler(service service.MovieService) *MovieHandler {
 
 func (h *MovieHandler) InitRoutes() *gin.Engine {
 	router := gin.Default()
+	// base middlewares
+	router.Use(gin.Logger())
+	router.Use(gin.Recovery())
 
 	//Регистрируем маршруты
 	router.GET("/movies", h.GetAllMovies)
