@@ -1,9 +1,11 @@
 package repository
 
 import (
-	"sync"
-
 	"cinema_v1/internal/models"
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
 )
 
 // Интерфейс хранилища (абстракция для любой БД)
@@ -15,70 +17,150 @@ type MovieRepository interface {
 	Delete(id string) error
 }
 
-// Реализация хранилища в памяти
-type MovieMemoryRepository struct {
-	movies map[string]models.Movie
-	mu     sync.RWMutex
+// Реализация хранилища в БД
+type MoviePostgresRepository struct {
+	db *sql.DB
 }
 
 // Конструктор хранилища
-func NewMovieMemoryRepository() MovieRepository {
-	return &MovieMemoryRepository{
-		movies: make(map[string]models.Movie),
+func NewMoviePostgresRepository(db *sql.DB) MovieRepository {
+	return &MoviePostgresRepository{db: db}
+}
+
+func (r *MoviePostgresRepository) EnsureTableExists() error {
+	query := `
+	CREATE TABLE IF NOT EXISTS movies (
+	id UUID PRIMARY KEY
+	title TEXT NOT NULL
+	description TEXT 
+	duration BIGINT
+	rating REAL
+	);`
+	_, err := r.db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("failed to create movies table: %w, err")
 	}
+	return nil
 }
 
 // Получить все фильмы
-func (r *MovieMemoryRepository) GetAll() ([]models.Movie, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+func (r *MoviePostgresRepository) GetAll() ([]models.Movie, error) {
+	query := `SELECT id, title, description, duration, rating, genre FROM movies ORDER BY title ASC`
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("falied to get all movies: %w", err)
+	}
+	defer rows.Close()
 
-	movies := make([]models.Movie, 0, len(r.movies))
-	for _, movie := range r.movies {
+	movies := []models.Movie{}
+	for rows.Next() {
+		var movie models.Movie
+		var durationNs int64
+
+		if err := rows.Scan(&movie.ID, &movie.Title, &movie.Description, &movie.Rating, &movie.Genre); err != nil {
+			return nil, fmt.Errorf("failed to scan movie row: %w", err)
+		}
+		movie.Duration = time.Duration(durationNs)
 		movies = append(movies, movie)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error during rows iteration: %w", err)
+	}
+
 	return movies, nil
 }
 
 // Получить фильм по ID
-func (r *MovieMemoryRepository) GetByID(id string) (*models.Movie, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+func (r *MoviePostgresRepository) GetByID(id string) (*models.Movie, error) {
+	var movie models.Movie
+	var durationNs int64
 
-	movie, exists := r.movies[id]
-	if !exists {
-		return nil, nil
+	query := `SELECT id, title, description, duration, rating, genre FROM movies WHERE id = $1`
+
+	row := r.db.QueryRow(query, id)
+
+	err := row.Scan(&movie.ID, &movie.Title, &movie.Description, &durationNs, &movie.Rating, &movie.Genre)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get movie by ID: %w", err)
 	}
+
+	movie.Duration = time.Duration(durationNs)
+
 	return &movie, nil
 }
 
 // Создать фильм
-func (r *MovieMemoryRepository) Create(movie models.Movie) (*models.Movie, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *MoviePostgresRepository) Create(movie models.Movie) (*models.Movie, error) {
+	// if movie.ID == "" {
+	// 	newUUID, err := uuid.NewRandom()
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("failed to generate UUID: %w", err)
+	// 	}
+	// 	movie.ID = newUUID.String()
+	// }
 
-	r.movies[movie.ID] = movie
+	query := `INSERT INTO movies (id, title, description, duration, rating, genre)
+              VALUES ($1, $2, $3, $4, $5, $6)
+              RETURNING id`
+
+	var insertedID string
+
+	err := r.db.QueryRow(query, movie.ID, movie.Title, movie.Description,
+		movie.Duration.Nanoseconds(), movie.Rating, movie.Genre).Scan(&insertedID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create movie: %w", err)
+	}
+
+	movie.ID = insertedID
 	return &movie, nil
 }
 
 // Обновить фильм
-func (r *MovieMemoryRepository) Update(movie models.Movie) (*models.Movie, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *MoviePostgresRepository) Update(movie models.Movie) (*models.Movie, error) {
+	query := `UPDATE movies SET title=$2, description=$3, duration=$4, rating=$5, genre=$6
+              WHERE id=$1
+              RETURNING id, title, description, duration, rating, genre`
 
-	if _, exists := r.movies[movie.ID]; !exists {
-		return nil, nil
+	var updatedMovie models.Movie
+	var durationNs int64
+
+	err := r.db.QueryRow(query, movie.ID, movie.Title, movie.Description,
+		movie.Duration.Nanoseconds(), movie.Rating, movie.Genre).
+		Scan(&updatedMovie.ID, &updatedMovie.Title, &updatedMovie.Description,
+			&durationNs, &updatedMovie.Rating, &updatedMovie.Genre)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to update movie: %w", err)
 	}
 
-	r.movies[movie.ID] = movie
-	return &movie, nil
+	updatedMovie.Duration = time.Duration(durationNs)
+
+	return &updatedMovie, nil
 }
 
 // Удалить фильм
-func (r *MovieMemoryRepository) Delete(id string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *MoviePostgresRepository) Delete(id string) error {
+	query := `DELETE FROM movies WHERE id = $1`
 
-	delete(r.movies, id)
+	result, err := r.db.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete movie: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected after delete: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		// return errors.New("movie not found for deletion")
+	}
+
 	return nil
 }
