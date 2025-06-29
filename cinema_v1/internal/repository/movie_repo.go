@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Интерфейс хранилища (абстракция для любой БД)
@@ -95,13 +97,13 @@ func (r *MoviePostgresRepository) GetByID(id string) (*models.Movie, error) {
 
 // Создать фильм
 func (r *MoviePostgresRepository) Create(movie models.Movie) (*models.Movie, error) {
-	// if movie.ID == "" {
-	// 	newUUID, err := uuid.NewRandom()
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("failed to generate UUID: %w", err)
-	// 	}
-	// 	movie.ID = newUUID.String()
-	// }
+	if movie.ID == "" {
+		newUUID, err := uuid.NewRandom()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate UUID: %w", err)
+		}
+		movie.ID = newUUID.String()
+	}
 
 	query := `INSERT INTO movies (id, title, description, duration, rating, genre)
               VALUES ($1, $2, $3, $4, $5, $6)
@@ -159,7 +161,7 @@ func (r *MoviePostgresRepository) Delete(id string) error {
 	}
 
 	if rowsAffected == 0 {
-		// return errors.New("movie not found for deletion")
+		return errors.New("movie not found for deletion")
 	}
 
 	return nil
