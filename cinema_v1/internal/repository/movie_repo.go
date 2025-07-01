@@ -6,17 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // Интерфейс хранилища (абстракция для любой БД)
 type MovieRepository interface {
 	GetAll() ([]models.Movie, error)
-	GetByID(id string) (*models.Movie, error)
+	GetByID(id int) (*models.Movie, error)
 	Create(movie models.Movie) (*models.Movie, error)
 	Update(movie models.Movie) (*models.Movie, error)
-	Delete(id string) error
+	Delete(id int) error
 }
 
 // Реализация хранилища в БД
@@ -27,22 +25,6 @@ type MoviePostgresRepository struct {
 // Конструктор хранилища
 func NewMoviePostgresRepository(db *sql.DB) MovieRepository {
 	return &MoviePostgresRepository{db: db}
-}
-
-func (r *MoviePostgresRepository) EnsureTableExists() error {
-	query := `
-	CREATE TABLE IF NOT EXISTS movies (
-	id UUID PRIMARY KEY
-	title TEXT NOT NULL
-	description TEXT 
-	duration BIGINT
-	rating REAL
-	);`
-	_, err := r.db.Exec(query)
-	if err != nil {
-		return fmt.Errorf("failed to create movies table: %w, err")
-	}
-	return nil
 }
 
 // Получить все фильмы
@@ -74,7 +56,7 @@ func (r *MoviePostgresRepository) GetAll() ([]models.Movie, error) {
 }
 
 // Получить фильм по ID
-func (r *MoviePostgresRepository) GetByID(id string) (*models.Movie, error) {
+func (r *MoviePostgresRepository) GetByID(id int) (*models.Movie, error) {
 	var movie models.Movie
 	var durationNs int64
 
@@ -97,21 +79,14 @@ func (r *MoviePostgresRepository) GetByID(id string) (*models.Movie, error) {
 
 // Создать фильм
 func (r *MoviePostgresRepository) Create(movie models.Movie) (*models.Movie, error) {
-	if movie.ID == "" {
-		newUUID, err := uuid.NewRandom()
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate UUID: %w", err)
-		}
-		movie.ID = newUUID.String()
-	}
 
-	query := `INSERT INTO movies (id, title, description, duration, rating, genre)
-              VALUES ($1, $2, $3, $4, $5, $6)
+	query := `INSERT INTO movies (title, description, duration, rating, genre)
+              VALUES ($1, $2, $3, $4, $5)
               RETURNING id`
 
-	var insertedID string
+	var insertedID int
 
-	err := r.db.QueryRow(query, movie.ID, movie.Title, movie.Description,
+	err := r.db.QueryRow(query, movie.Title, movie.Description,
 		movie.Duration.Nanoseconds(), movie.Rating, movie.Genre).Scan(&insertedID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create movie: %w", err)
@@ -147,7 +122,7 @@ func (r *MoviePostgresRepository) Update(movie models.Movie) (*models.Movie, err
 }
 
 // Удалить фильм
-func (r *MoviePostgresRepository) Delete(id string) error {
+func (r *MoviePostgresRepository) Delete(id int) error {
 	query := `DELETE FROM movies WHERE id = $1`
 
 	result, err := r.db.Exec(query, id)

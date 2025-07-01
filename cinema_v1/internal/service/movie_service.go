@@ -8,10 +8,10 @@ import (
 // Интерфейс сервиса (бизнес-логика)
 type MovieService interface {
 	GetAllMovies() ([]models.Movie, error)
-	GetMovie(id string) (*models.Movie, error)
+	GetMovie(id int) (*models.Movie, error)
 	CreateMovie(movie models.Movie) (*models.Movie, error)
 	UpdateMovie(movie models.Movie) (*models.Movie, error)
-	DeleteMovie(id string) error
+	DeleteMovie(id int) error
 }
 
 // Реализация сервиса
@@ -30,8 +30,8 @@ func (s *movieService) GetAllMovies() ([]models.Movie, error) {
 }
 
 // Получить фильм по ID
-func (s *movieService) GetMovie(id string) (*models.Movie, error) {
-	if id == "" {
+func (s *movieService) GetMovie(id int) (*models.Movie, error) {
+	if id == 0 {
 		return nil, nil
 	}
 	return s.repo.GetByID(id)
@@ -45,14 +45,14 @@ func (s *movieService) CreateMovie(movie models.Movie) (*models.Movie, error) {
 }
 
 func (s *movieService) UpdateMovie(movie models.Movie) (*models.Movie, error) {
-	if movie.ID == "" {
+	if movie.ID == 0 {
 		return nil, nil
 	}
 	return s.repo.Update(movie)
 }
 
-func (s *movieService) DeleteMovie(id string) error {
-	if id == "" {
+func (s *movieService) DeleteMovie(id int) error {
+	if id == 0 {
 		return nil
 	}
 	return s.repo.Delete(id)

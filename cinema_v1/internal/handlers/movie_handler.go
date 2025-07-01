@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"cinema_v1/internal/models"
 	"cinema_v1/internal/service"
@@ -45,7 +46,11 @@ func (h *MovieHandler) GetAllMovies(c *gin.Context) {
 
 // Получить фильм по ID
 func (h *MovieHandler) GetMovie(c *gin.Context) {
-	id := c.Param("id")
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id param is not correct"})
+		return
+	}
 
 	movie, err := h.service.GetMovie(id)
 	if err != nil {
@@ -85,7 +90,11 @@ func (h *MovieHandler) CreateMovie(c *gin.Context) {
 
 // Обновить фильм
 func (h *MovieHandler) UpdateMovie(c *gin.Context) {
-	id := c.Param("id")
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id param is not correct"})
+		return
+	}
 
 	var movie models.Movie
 	if err := c.ShouldBindJSON(&movie); err != nil {
@@ -110,9 +119,13 @@ func (h *MovieHandler) UpdateMovie(c *gin.Context) {
 
 // Удалить фильм
 func (h *MovieHandler) DeleteMovie(c *gin.Context) {
-	id := c.Param("id")
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id param is not correct"})
+		return
+	}
 
-	err := h.service.DeleteMovie(id)
+	err = h.service.DeleteMovie(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return

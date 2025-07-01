@@ -43,12 +43,6 @@ func main() {
 	// Инициализация хранилища в памяти
 	repo := repository.NewMoviePostgresRepository(db)
 
-	err = repo.(*repository.MoviePostgresRepository).EnsureTableExists()
-	if err != nil {
-		logrus.Fatalf("Failed to ensure database table exists: %v", err)
-	}
-	logrus.Info("Database table 'movies' checked/created successfully.")
-
 	// Инициализация сервиса
 	service := service.NewMovieService(repo)
 
